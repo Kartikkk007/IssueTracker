@@ -1,0 +1,87 @@
+﻿@using IssueTracker.Application.DTOs
+@using IssueTracker.Infrastructure.Entities
+
+<MudDialog Style="background-color: #161922; border: 1px solid #282e40; border-radius: 12px;">
+    <TitleContent>
+        <div class="d-flex align-center gap-2 pt-2">
+            <MudIcon Icon="@Icons.Material.Filled.AddCircleOutline" Color="Color.Primary" />
+            <MudText Typo="Typo.h6" Class="fw-bold text-white">Create New Ticket</MudText>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="form" @bind-IsValid="@success">
+            <MudTextField T="string"
+                          Label="Issue Title"
+                          @bind-Value="command.Title"
+                          Required="true"
+                          RequiredError="Title is required"
+                          Variant="Variant.Outlined"
+                          Class="mb-4" />
+
+            <MudTextField T="string"
+                          Label="Description"
+                          @bind-Value="command.Description"
+                          Lines="3"
+                          Variant="Variant.Outlined"
+                          Placeholder="Add reproduction steps or context..."
+                          Class="mb-4" />
+
+            <MudGrid>
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="string" Label="Priority" @bind-Value="command.Priority" Variant="Variant.Outlined">
+                        <MudSelectItem Value="@("Low")">Low</MudSelectItem>
+                        <MudSelectItem Value="@("Medium")">Medium</MudSelectItem>
+                        <MudSelectItem Value="@("High")">High</MudSelectItem>
+                        <MudSelectItem Value="@("Critical")">Critical</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="int?" Label="Assignee" @bind-Value="command.AssigneeId" Variant="Variant.Outlined">
+                        <MudSelectItem T="int?" Value="@((int?)null)">Unassigned</MudSelectItem>
+                        @foreach (var user in Users)
+                        {
+                            <MudSelectItem T="int?" Value="@((int?)user.UserId)">@user.FullName</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" Style="color: #94a3b8;" OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary"
+                   Variant="Variant.Filled"
+                   Style="font-weight: 600; border-radius: 8px;"
+                   OnClick="Submit"
+                   Disabled="@(!success)">
+            Create Issue
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public int ProjectId { get; set; } = 1;
+    [Parameter] public List<User> Users { get; set; } = new();
+
+    private MudForm form = default!;
+    private bool success;
+    private CreateIssueCommand command = new();
+
+    protected override void OnInitialized()
+    {
+        command.ProjectId = ProjectId;
+        command.Priority = "Medium";
+        command.ReporterId = Users.FirstOrDefault()?.UserId ?? 1;
+    }
+
+    private void Submit()
+    {
+        if (form.IsValid)
+        {
+            MudDialog.Close(DialogResult.Ok(command));
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

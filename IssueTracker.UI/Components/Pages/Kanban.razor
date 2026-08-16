@@ -1,0 +1,241 @@
+﻿@page "/kanban"
+@page "/kanban/{ProjectId:int}"
+@rendermode InteractiveServer
+@using IssueTracker.Application.DTOs
+@using IssueTracker.Application.Services
+@using IssueTracker.Infrastructure.Entities
+@using IssueTracker.UI.Components.Shared
+@inject IssueService IssueService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Sprint Board</PageTitle>
+
+<!-- Header Section -->
+<div class="d-flex justify-space-between align-center mb-6">
+    <div>
+        <MudText Typo="Typo.h5" Class="fw-bold text-white mb-1">Engineering Sprint</MudText>
+        <MudText Typo="Typo.body2" Style="color: #71717a;">Drag tickets across columns to update workflow state</MudText>
+    </div>
+    <div class="d-flex gap-3">
+        <MudButton Variant="Variant.Outlined"
+                   StartIcon="@Icons.Material.Filled.Refresh"
+                   Style="border-color: #2e3446; color: #cbd5e1;"
+                   OnClick="LoadBoard">
+            Sync
+        </MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   Style="font-weight: 600; text-transform: none; border-radius: 8px;"
+                   OnClick="OpenCreateDialog">
+            New Issue
+        </MudButton>
+    </div>
+</div>
+
+@if (isLoading)
+{
+    <div class="d-flex justify-center align-center" style="height: 350px;">
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
+    </div>
+}
+else
+{
+    <MudDropContainer T="IssueDto"
+                      Items="issues"
+                      ItemsSelector="@((item, dropzone) => item.Status.Equals(dropzone, StringComparison.OrdinalIgnoreCase))"
+                      ItemDropped="OnItemDropped"
+                      Class="d-flex flex-row gap-4 overflow-x-auto pb-4">
+        <ChildContent>
+            @foreach (var col in Columns)
+            {
+                var columnCount = issues.Count(i => i.Status.Equals(col, StringComparison.OrdinalIgnoreCase));
+                <div style="flex: 1 1 0; min-width: 300px; background-color: #141721; border: 1px solid #232734; border-radius: 12px; display: flex; flex-direction: column;">
+                    
+                    <!-- Column Header -->
+                    <div class="d-flex justify-space-between align-center pa-4" style="border-bottom: 1px solid #1e2230;">
+                        <div class="d-flex align-center gap-2">
+                            <span style="width: 8px; height: 8px; border-radius: 50%; background-color: @GetColumnDotColor(col);"></span>
+                            <MudText Typo="Typo.subtitle2" Class="fw-bold text-white">@FormatColumnTitle(col)</MudText>
+                        </div>
+                        <span style="background-color: #1e2230; color: #94a3b8; font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 10px;">
+                            @columnCount
+                        </span>
+                    </div>
+
+                    <!-- Drop Target -->
+                    <MudDropZone T="IssueDto" Identifier="@col" Class="pa-3 d-flex flex-column gap-3 flex-grow-1" Style="min-height: 520px;" />
+                </div>
+            }
+        </ChildContent>
+        <ItemRenderer>
+            <div style="background-color: #1a1e2b; border: 1px solid #282e40; border-radius: 8px; padding: 14px; cursor: grab; transition: all 0.2s ease;"
+                 onmouseover="this.style.borderColor='#3f4865'; this.style.transform='translateY(-2px)';"
+                 onmouseout="this.style.borderColor='#282e40'; this.style.transform='translateY(0)';">
+                
+                <!-- Ticket Header -->
+                <div class="d-flex justify-space-between align-center mb-2">
+                    <span style="font-family: monospace; font-size: 0.75rem; font-weight: 700; color: #818cf8;">@context.IssueKey</span>
+                    <span style="font-size: 0.7rem; font-weight: 600; padding: 2px 6px; border-radius: 4px; background-color: @GetPriorityBg(context.Priority); color: @GetPriorityTextColor(context.Priority);">
+                        @context.Priority
+                    </span>
+                </div>
+
+                <!-- Ticket Title -->
+                <MudText Typo="Typo.body2" Class="text-white fw-medium mb-3" Style="line-height: 1.4;">
+                    @context.Title
+                </MudText>
+
+                <!-- Tags -->
+                @if (context.Tags.Any())
+                {
+                    <div class="d-flex flex-wrap gap-1 mb-3">
+                        @foreach (var tag in context.Tags)
+                        {
+                            <span style="background-color: #252b3d; color: #94a3b8; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; border: 1px solid #333a50;">
+                                #@tag
+                            </span>
+                        }
+                    </div>
+                }
+
+                <!-- Footer / Assignee -->
+                <div class="d-flex justify-space-between align-center pt-2" style="border-top: 1px solid #232734;">
+                    <div class="d-flex align-center gap-2">
+                        <MudAvatar Size="Size.Small" Style="width: 22px; height: 22px; font-size: 0.65rem; background-color: #3730a3; color: #e0e7ff;">
+                            @(string.IsNullOrEmpty(context.AssigneeName) ? "?" : context.AssigneeName[0].ToString().ToUpper())
+                        </MudAvatar>
+                        <MudText Typo="Typo.caption" Style="color: #94a3b8;">
+                            @(context.AssigneeName ?? "Unassigned")
+                        </MudText>
+                    </div>
+                </div>
+            </div>
+        </ItemRenderer>
+    </MudDropContainer>
+}
+
+@code {
+    [Parameter] public int? ProjectId { get; set; }
+
+    private int CurrentProjectId => ProjectId ?? 1;
+    private List<IssueDto> issues = new();
+    private bool isLoading = true;
+    private readonly string[] Columns = { "Backlog", "InProgress", "InReview", "Done" };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadBoard();
+    }
+
+    private async Task LoadBoard()
+    {
+        isLoading = true;
+        issues = await IssueService.GetKanbanBoardAsync(CurrentProjectId);
+        isLoading = false;
+    }
+
+    private async Task OnItemDropped(MudItemDropInfo<IssueDto> dropInfo)
+    {
+        if (dropInfo.Item == null || dropInfo.DropzoneIdentifier == dropInfo.Item.Status)
+            return;
+
+        var item = dropInfo.Item;
+        var newStatus = dropInfo.DropzoneIdentifier;
+        var oldStatus = item.Status;
+
+        var index = issues.FindIndex(i => i.IssueId == item.IssueId);
+        if (index != -1)
+        {
+            issues[index] = item with { Status = newStatus };
+        }
+
+        var success = await IssueService.ChangeStatusAsync(item.IssueId, newStatus);
+        if (!success)
+        {
+            if (index != -1) issues[index] = item with { Status = oldStatus };
+            Snackbar.Add("Failed to update status", Severity.Error);
+        }
+        else
+        {
+            Snackbar.Add($"Moved to {FormatColumnTitle(newStatus)}", Severity.Success);
+            await LoadBoard();
+        }
+    }
+
+    private async Task OpenCreateDialog()
+    {
+        try
+        {
+            var users = await IssueService.GetUsersAsync();
+            
+            var parameters = new DialogParameters
+            {
+                { nameof(CreateIssueModal.ProjectId), CurrentProjectId },
+                { nameof(CreateIssueModal.Users), users }
+            };
+
+            var options = new DialogOptions
+            {
+                CloseOnEscapeKey = true,
+                MaxWidth = MaxWidth.Small,
+                FullWidth = true,
+                CloseButton = true
+            };
+
+            var dialog = await DialogService.ShowAsync<CreateIssueModal>("Create New Issue", parameters, options);
+            var result = await dialog.Result;
+
+            if (result is not null && !result.Canceled && result.Data is CreateIssueCommand command)
+            {
+                var success = await IssueService.CreateIssueAsync(command);
+                if (success)
+                {
+                    Snackbar.Add("Issue created successfully!", Severity.Success);
+                    await LoadBoard();
+                }
+                else
+                {
+                    Snackbar.Add("Error creating issue", Severity.Error);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private string FormatColumnTitle(string status) => status switch
+    {
+        "InProgress" => "In Progress",
+        "InReview" => "In Review",
+        _ => status
+    };
+
+    private string GetColumnDotColor(string status) => status switch
+    {
+        "Backlog" => "#71717a",
+        "InProgress" => "#38bdf8",
+        "InReview" => "#fbbf24",
+        "Done" => "#34d399",
+        _ => "#71717a"
+    };
+
+    private string GetPriorityBg(string priority) => priority switch
+    {
+        "Critical" => "rgba(244, 63, 94, 0.15)",
+        "High" => "rgba(251, 191, 36, 0.15)",
+        "Medium" => "rgba(99, 102, 241, 0.15)",
+        _ => "rgba(113, 113, 122, 0.15)"
+    };
+
+    private string GetPriorityTextColor(string priority) => priority switch
+    {
+        "Critical" => "#fb7185",
+        "High" => "#fcd34d",
+        "Medium" => "#818cf8",
+        _ => "#94a3b8"
+    };
+}

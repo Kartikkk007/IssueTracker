@@ -1,0 +1,73 @@
+﻿@inherits LayoutComponentBase
+
+<MudThemeProvider Theme="_customDarkTheme" IsDarkMode="true" />
+<MudDialogProvider Position="DialogPosition.Center"
+                   CloseButton="true"
+                   MaxWidth="MaxWidth.Small"
+                   FullWidth="true" />
+<MudSnackbarProvider />
+<MudPopoverProvider />
+
+<MudLayout>
+    <!-- Top App Bar -->
+    <MudAppBar Elevation="0" Style="background-color: #161922; border-bottom: 1px solid #232734;">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@ToggleDrawer" />
+        <MudIcon Icon="@Icons.Material.Filled.BugReport" Color="Color.Primary" Class="ml-2 mr-2" />
+        <MudText Typo="Typo.h6" Class="fw-bold" Style="letter-spacing: -0.5px;">Linear<span style="color: #6366f1;">Issue</span></MudText>
+        
+        <MudSpacer />
+        
+        <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Style="background-color: #232734; color: #a1a1aa;">
+            Sprint 1 • Active
+        </MudChip>
+        <MudIconButton Icon="@Icons.Custom.Brands.GitHub" Color="Color.Inherit" Class="ml-2" />
+    </MudAppBar>
+    
+    <!-- Sidebar Navigation -->
+    <MudDrawer @bind-Open="@_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="0"
+               Style="background-color: #161922; border-right: 1px solid #232734;">
+        <MudDrawerHeader Class="px-4 py-3">
+            <MudText Typo="Typo.caption" Style="color: #71717a; text-transform: uppercase; font-weight: 700; letter-spacing: 1px;">
+                Workspace
+            </MudText>
+        </MudDrawerHeader>
+        <NavMenu />
+    </MudDrawer>
+    
+    <!-- Main Content Area -->
+    <MudMainContent Style="background-color: #0f1117; min-height: 100vh;">
+        <MudContainer MaxWidth="MaxWidth.ExtraExtraLarge" Class="pa-6">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private bool _drawerOpen = true;
+
+    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+
+    private readonly MudTheme _customDarkTheme = new()
+    {
+        PaletteDark = new PaletteDark()
+        {
+            Primary = "#6366f1",             // Indigo accent
+            PrimaryContrastText = "#ffffff",
+            Secondary = "#8b5cf6",           // Purple accent
+            Background = "#0f1117",          // Deep dark canvas
+            Surface = "#161922",             // Elevated card surface
+            AppbarBackground = "#161922",
+            DrawerBackground = "#161922",
+            TextPrimary = "#f1f5f9",          // Bright white text
+            TextSecondary = "#94a3b8",        // Muted text
+            ActionDefault = "#94a3b8",
+            Divider = "#232734",
+            LinesDefault = "#232734",
+            TableLines = "#232734",
+            Error = "#f43f5e",               // Rose red
+            Warning = "#fbbf24",             // Amber
+            Info = "#38bdf8",                // Sky blue
+            Success = "#34d399"              // Emerald green
+        }
+    };
+}
