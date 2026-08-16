@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -11,11 +11,11 @@
     
     <link rel="stylesheet" href="app.css" />
     <link rel="stylesheet" href="IssueTracker.UI.styles.css" />
-    <HeadOutlet />
+    <HeadOutlet @rendermode="InteractiveServer" />
 </head>
 
 <body>
-    <Routes />
+    <Routes @rendermode="InteractiveServer" />
     <script src="_framework/blazor.web.js"></script>
    
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>

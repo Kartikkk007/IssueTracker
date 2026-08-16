@@ -1,4 +1,4 @@
-﻿using IssueTracker.Core.Interfaces;
+using IssueTracker.Core.Interfaces;
 using IssueTracker.Infrastructure.Context;
 using IssueTracker.Infrastructure.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -36,9 +36,25 @@ public class IssueRepository : IIssueRepository<Issue>
 
     public async Task<int> GetNextIssueSequenceAsync(string projectKey, CancellationToken ct = default)
     {
-        var count = await _context.Issues
-            .CountAsync(i => i.IssueKey.StartsWith(projectKey + "-"), ct);
-        return count + 1;
+        var keys = await _context.Issues
+            .AsNoTracking()
+            .Where(i => i.IssueKey.StartsWith(projectKey + "-"))
+            .Select(i => i.IssueKey)
+            .ToListAsync(ct);
+
+        int maxSeq = 0;
+        foreach (var key in keys)
+        {
+            var parts = key.Split('-');
+            if (parts.Length > 1 && int.TryParse(parts[1], out int seq))
+            {
+                if (seq > maxSeq)
+                {
+                    maxSeq = seq;
+                }
+            }
+        }
+        return maxSeq + 1;
     }
 
     public async Task<bool> UpdateStatusAsync(int issueId, string newStatus, CancellationToken ct = default)
