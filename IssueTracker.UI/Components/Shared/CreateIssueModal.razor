@@ -38,7 +38,7 @@
                 <MudItem xs="12" sm="6">
                     <MudSelect T="int?" Label="Assignee" @bind-Value="command.AssigneeId" Variant="Variant.Outlined">
                         <MudSelectItem T="int?" Value="@((int?)null)">Unassigned</MudSelectItem>
-                        @foreach (var user in Users)
+                        @foreach (var user in Users) 
                         {
                             <MudSelectItem T="int?" Value="@((int?)user.UserId)">@user.FullName</MudSelectItem>
                         }
