@@ -1,0 +1,274 @@
+@using IssueTracker.Application.DTOs
+@using IssueTracker.Application.Services
+@using IssueTracker.Infrastructure.Entities
+@inject IssueService IssueService
+@inject AuthService AuthService
+
+<MudDialog Style="background-color: #161922; border: 1px solid #282e40; border-radius: 12px; min-width: 550px;">
+    <TitleContent>
+        <div class="d-flex justify-space-between align-center pt-2 pa-2">
+            <div class="d-flex align-center gap-2">
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Style="background-color: #282e40; color: #818cf8; font-weight: 700; font-family: monospace;">
+                    @Issue.IssueKey
+                </MudChip>
+                <MudText Typo="Typo.h6" Class="fw-bold text-white">Issue Details</MudText>
+            </div>
+            @if (AuthService.HasRole("Admin"))
+            {
+                <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline" Color="Color.Error" OnClick="DeleteIssue" />
+            }
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-4">
+            <MudTabPanel Text="Details" Icon="@Icons.Material.Filled.EditNote">
+                <MudForm @ref="form" @bind-IsValid="@success">
+                    <MudTextField T="string"
+                                  Label="Title"
+                                  @bind-Value="title"
+                                  Required="true"
+                                  RequiredError="Title is required"
+                                  Variant="Variant.Outlined"
+                                  Class="mb-4" />
+
+                    <MudTextField T="string"
+                                  Label="Description"
+                                  @bind-Value="description"
+                                  Lines="3"
+                                  Variant="Variant.Outlined"
+                                  Class="mb-4" />
+
+                    <MudGrid>
+                        <MudItem xs="12" sm="6">
+                            <MudSelect T="string" Label="Status" @bind-Value="status" Variant="Variant.Outlined">
+                                <MudSelectItem Value="@("Backlog")">Backlog</MudSelectItem>
+                                <MudSelectItem Value="@("InProgress")">In Progress</MudSelectItem>
+                                <MudSelectItem Value="@("InReview")">In Review</MudSelectItem>
+                                <MudSelectItem Value="@("Done")">Done</MudSelectItem>
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudSelect T="string" Label="Priority" @bind-Value="priority" Variant="Variant.Outlined">
+                                <MudSelectItem Value="@("Low")">Low</MudSelectItem>
+                                <MudSelectItem Value="@("Medium")">Medium</MudSelectItem>
+                                <MudSelectItem Value="@("High")">High</MudSelectItem>
+                                <MudSelectItem Value="@("Critical")">Critical</MudSelectItem>
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudSelect T="int?" Label="Assignee" @bind-Value="assigneeId" Variant="Variant.Outlined">
+                                <MudSelectItem T="int?" Value="@((int?)null)">Unassigned</MudSelectItem>
+                                @foreach (var user in Users)
+                                {
+                                    <MudSelectItem T="int?" Value="@((int?)user.UserId)">@user.FullName</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                    </MudGrid>
+                </MudForm>
+            </MudTabPanel>
+
+            <MudTabPanel Text="Comments" Icon="@Icons.Material.Filled.Comment">
+                @if (isLoadingComments)
+                {
+                    <div class="d-flex justify-center pa-4">
+                        <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Medium" />
+                    </div>
+                }
+                else
+                {
+                    <div style="max-height: 280px; overflow-y: auto;" class="pr-2 mb-4">
+                        @if (comments.Any())
+                        {
+                            @foreach (var c in comments)
+                            {
+                                <div class="d-flex gap-3 mb-3 pa-3" style="background-color: #1a1e2b; border-radius: 8px; border: 1px solid #232734;">
+                                    <MudAvatar Size="Size.Small" Style="background-color: #3730a3; color: #818cf8; font-weight: 700;">
+                                        @(string.IsNullOrEmpty(c.UserName) ? "?" : c.UserName[0].ToString().ToUpper())
+                                    </MudAvatar>
+                                    <div style="flex-grow: 1;">
+                                        <div class="d-flex justify-space-between align-center mb-1">
+                                            <span style="font-weight: 600; color: #f1f5f9; font-size: 0.85rem;">@c.UserName</span>
+                                            <span style="font-size: 0.75rem; color: #71717a;">@c.CreatedAt.ToString("MMM dd, HH:mm")</span>
+                                        </div>
+                                        <div style="color: #cbd5e1; font-size: 0.85rem; white-space: pre-wrap;">@c.Content</div>
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2" Style="color: #71717a;" Class="pa-4 text-center">
+                                No comments posted yet. Start the conversation below!
+                            </MudText>
+                        }
+                    </div>
+
+                    <div class="d-flex gap-2 align-center">
+                        <MudTextField T="string"
+                                      Placeholder="Write a comment..."
+                                      @bind-Value="newCommentText"
+                                      Variant="Variant.Outlined"
+                                      Margin="Margin.Dense"
+                                      Style="background-color: #141721; color: white;" />
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Send"
+                                   OnClick="PostComment"
+                                   Disabled="@(string.IsNullOrWhiteSpace(newCommentText) || isSubmittingComment)"
+                                   Style="border-radius: 8px;">
+                            Post
+                        </MudButton>
+                    </div>
+                }
+            </MudTabPanel>
+
+            <MudTabPanel Text="Activity History" Icon="@Icons.Material.Filled.History">
+                @if (isLoadingHistory)
+                {
+                    <div class="d-flex justify-center pa-4">
+                        <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Medium" />
+                    </div>
+                }
+                else if (history.Any())
+                {
+                    <MudTimeline TimelinePosition="TimelinePosition.Start">
+                        @foreach (var log in history)
+                        {
+                            <MudTimelineItem Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
+                                <ItemContent>
+                                    <div>
+                                        <span style="font-weight: 600; color: #f1f5f9;">@log.UserName</span>
+                                        <span style="color: #94a3b8; margin-left: 4px;">@log.Description</span>
+                                        <div style="font-size: 0.75rem; color: #71717a;" Class="mt-1">
+                                            @log.Timestamp.ToString("MMM dd, yyyy • HH:mm")
+                                        </div>
+                                    </div>
+                                </ItemContent>
+                            </MudTimelineItem>
+                        }
+                    </MudTimeline>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Style="color: #71717a;" Class="pa-4 text-center">
+                        No activity history recorded for this ticket yet.
+                    </MudText>
+                }
+            </MudTabPanel>
+        </MudTabs>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" Style="color: #94a3b8;" OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary"
+                   Variant="Variant.Filled"
+                   Style="font-weight: 600; border-radius: 8px;"
+                   OnClick="Save">
+            Save Changes
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public IssueDto Issue { get; set; } = default!;
+    [Parameter] public List<User> Users { get; set; } = new();
+
+    private MudForm form = default!;
+    private bool success;
+
+    private string title = string.Empty;
+    private string? description;
+    private string status = "Backlog";
+    private string priority = "Medium";
+    private int? assigneeId;
+
+    private List<ActivityLog> history = new();
+    private bool isLoadingHistory = true;
+
+    private List<CommentDto> comments = new();
+    private bool isLoadingComments = true;
+    private string newCommentText = string.Empty;
+    private bool isSubmittingComment = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Issue != null)
+        {
+            title = Issue.Title;
+            description = Issue.Description;
+            status = Issue.Status;
+            priority = Issue.Priority;
+            assigneeId = Issue.AssigneeId;
+
+            try
+            {
+                history = await IssueService.GetActivitiesForIssueAsync(Issue.IssueId);
+                comments = await IssueService.GetCommentsByIssueIdAsync(Issue.IssueId);
+            }
+            catch
+            {
+                history = new List<ActivityLog>();
+                comments = new List<CommentDto>();
+            }
+            finally
+            {
+                isLoadingHistory = false;
+                isLoadingComments = false;
+            }
+        }
+    }
+
+    private async Task PostComment()
+    {
+        if (string.IsNullOrWhiteSpace(newCommentText) || Issue == null) return;
+
+        isSubmittingComment = true;
+        try
+        {
+            int currentUserId = AuthService.CurrentUser?.UserId ?? Users.FirstOrDefault()?.UserId ?? 1;
+            bool ok = await IssueService.AddCommentAsync(Issue.IssueId, currentUserId, newCommentText);
+            if (ok)
+            {
+                newCommentText = string.Empty;
+                comments = await IssueService.GetCommentsByIssueIdAsync(Issue.IssueId);
+                history = await IssueService.GetActivitiesForIssueAsync(Issue.IssueId);
+            }
+        }
+        finally
+        {
+            isSubmittingComment = false;
+        }
+    }
+
+    private void Save()
+    {
+        if (form.IsValid)
+        {
+            var updated = Issue with
+            {
+                Title = title,
+                Description = description,
+                Status = status,
+                Priority = priority,
+                AssigneeId = assigneeId,
+                AssigneeName = Users.FirstOrDefault(u => u.UserId == assigneeId)?.FullName
+            };
+            MudDialog.Close(DialogResult.Ok(new IssueDialogResult { Action = IssueDialogAction.Update, Issue = updated }));
+        }
+    }
+
+    private void DeleteIssue()
+    {
+        MudDialog.Close(DialogResult.Ok(new IssueDialogResult { Action = IssueDialogAction.Delete, Issue = Issue }));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    public enum IssueDialogAction { Update, Delete }
+    public class IssueDialogResult
+    {
+        public IssueDialogAction Action { get; set; }
+        public IssueDto Issue { get; set; } = default!;
+    }
+}

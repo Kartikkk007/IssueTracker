@@ -1,7 +1,26 @@
-﻿<MudNavMenu Class="px-2">
-    <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.Dashboard">
-        Overview
+@using IssueTracker.Application.Services
+@inject AuthService AuthService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@implements IDisposable
+
+<MudNavMenu Class="px-2">
+    <!-- OVERVIEW SECTION -->
+    <div class="px-3 pt-3 pb-1">
+        <MudText Typo="Typo.caption" Style="color: #71717a; text-transform: uppercase; font-weight: 700; letter-spacing: 1px;">
+            Overview
+        </MudText>
+    </div>
+    <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
+        Dashboard Home
     </MudNavLink>
+
+    <!-- WORKSPACE SECTION -->
+    <div class="px-3 pt-4 pb-1">
+        <MudText Typo="Typo.caption" Style="color: #71717a; text-transform: uppercase; font-weight: 700; letter-spacing: 1px;">
+            Workspace
+        </MudText>
+    </div>
     <MudNavLink Href="kanban" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Outlined.ViewKanban">
         Sprint Board
     </MudNavLink>
@@ -11,4 +30,45 @@
     <MudNavLink Href="projects" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Outlined.FolderCopy">
         Projects
     </MudNavLink>
+
+    <!-- SESSION SECTION -->
+    <div class="px-3 pt-4 pb-1">
+        <MudText Typo="Typo.caption" Style="color: #71717a; text-transform: uppercase; font-weight: 700; letter-spacing: 1px;">
+            Session
+        </MudText>
+    </div>
+    @if (AuthService.IsAuthenticated)
+    {
+        <MudNavLink Href="login" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.SwitchAccount">
+            Switch Account
+        </MudNavLink>
+        <MudNavLink OnClick="HandleLogout" Icon="@Icons.Material.Filled.Logout" IconColor="Color.Error" Style="cursor: pointer;">
+            Log Out
+        </MudNavLink>
+    }
+    else
+    {
+        <MudNavLink Href="login" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Login">
+            Sign In
+        </MudNavLink>
+    }
 </MudNavMenu>
+
+@code {
+    protected override void OnInitialized()
+    {
+        AuthService.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        AuthService.OnChange -= StateHasChanged;
+    }
+
+    private void HandleLogout()
+    {
+        AuthService.Logout();
+        Snackbar.Add("Logged out successfully.", Severity.Info);
+        NavigationManager.NavigateTo("/login");
+    }
+}

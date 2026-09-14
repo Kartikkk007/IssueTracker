@@ -1,0 +1,104 @@
+@page "/login"
+@rendermode InteractiveServer
+@using IssueTracker.Application.Services
+@inject AuthService AuthService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>Login - LinearIssue Tracker</PageTitle>
+
+<div class="d-flex justify-center align-center" style="min-height: 80vh;">
+    <MudCard Style="background-color: #141721; border: 1px solid #232734; border-radius: 16px; width: 100%; max-width: 440px;" Class="pa-8">
+        
+        <!-- App Logo & Branding Header -->
+        <div class="text-center mb-6">
+            <div class="d-inline-flex align-center justify-center pa-3 mb-3" style="background: rgba(99, 102, 241, 0.15); border-radius: 16px;">
+                <MudIcon Icon="@Icons.Material.Filled.BugReport" Color="Color.Primary" Size="Size.Large" />
+            </div>
+            <MudText Typo="Typo.h5" Class="fw-bold text-white">Linear<span style="color: #6366f1;">Issue</span></MudText>
+            <MudText Typo="Typo.body2" Style="color: #94a3b8;" Class="mt-1">Sign in with your verified credentials</MudText>
+        </div>
+
+        <!-- Credentials Form -->
+        <MudForm @ref="loginForm" Class="mb-4">
+            <MudTextField T="string"
+                          Label="Email Address"
+                          @bind-Value="email"
+                          Required="true"
+                          RequiredError="Email is required"
+                          Variant="Variant.Outlined"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Email"
+                          Margin="Margin.Dense"
+                          Class="mb-4" />
+
+            <MudTextField T="string"
+                          Label="Password"
+                          @bind-Value="password"
+                          Required="true"
+                          RequiredError="Password is required"
+                          InputType="@(showPassword ? InputType.Text : InputType.Password)"
+                          Variant="Variant.Outlined"
+                          Adornment="Adornment.End"
+                          AdornmentIcon="@(showPassword ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
+                          OnAdornmentClick="@(() => showPassword = !showPassword)"
+                          Margin="Margin.Dense"
+                          Class="mb-6" />
+
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       FullWidth="true"
+                       Size="Size.Large"
+                       StartIcon="@Icons.Material.Filled.LockOpen"
+                       Style="font-weight: 700; border-radius: 8px;"
+                       Disabled="isSubmitting"
+                       OnClick="HandleLogin">
+                @(isSubmitting ? "Authenticating..." : "Sign In")
+            </MudButton>
+        </MudForm>
+
+        <MudDivider Class="my-4" Style="border-color: #232734;" />
+
+        <div class="text-center">
+            <MudText Typo="Typo.caption" Style="color: #71717a;">
+                Protected by JWT Bearer Authentication & Role Gates.
+            </MudText>
+        </div>
+    </MudCard>
+</div>
+
+@code {
+    private string email = "";
+    private string password = "";
+    private bool isSubmitting = false;
+    private bool showPassword = false;
+    private MudForm loginForm = default!;
+
+    private async Task HandleLogin()
+    {
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+        {
+            Snackbar.Add("Please enter both email and password.", Severity.Warning);
+            return;
+        }
+
+        isSubmitting = true;
+        try
+        {
+            var (success, msg) = await AuthService.LoginWithCredentialsAsync(email, password);
+            if (success)
+            {
+                Snackbar.Add($"Signed in as {AuthService.CurrentUser?.FullName} ({AuthService.CurrentUser?.Role})", Severity.Success);
+                NavigationManager.NavigateTo("/");
+            }
+            else
+            {
+                Snackbar.Add(msg, Severity.Error);
+            }
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+}

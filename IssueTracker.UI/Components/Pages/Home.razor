@@ -1,7 +1,263 @@
-﻿@page "/"
+@page "/"
+@rendermode InteractiveServer
+@using IssueTracker.Application.DTOs
+@using IssueTracker.Application.Services
+@using IssueTracker.Infrastructure.Entities
+@inject IssueService IssueService
+@inject NavigationManager NavigationManager
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Overview Dashboard</PageTitle>
 
-<h1>Hello, world!</h1>
+<!-- Top Title Banner -->
+<div class="d-flex justify-space-between align-center mb-6">
+    <div>
+        <MudText Typo="Typo.h5" Class="fw-bold text-white mb-1">Executive Overview</MudText>
+        <MudText Typo="Typo.body2" Style="color: #71717a;">Workspace analytics, active metrics, and priority tracking</MudText>
+    </div>
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.ViewKanban"
+               Style="font-weight: 600; text-transform: none; border-radius: 8px;"
+               OnClick="@(() => NavigationManager.NavigateTo("/kanban"))">
+        Go to Sprint Board
+    </MudButton>
+</div>
 
-Welcome to your new app.
+@if (isLoading)
+{
+    <div class="d-flex justify-center align-center" style="height: 350px;">
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
+    </div>
+}
+else
+{
+    <!-- Stat Cards Grid -->
+    <MudGrid Class="mb-6">
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-4" Style="background-color: #141721; border: 1px solid #232734; border-radius: 12px;">
+                <div class="d-flex justify-space-between align-center">
+                    <div>
+                        <MudText Typo="Typo.caption" Style="color: #71717a; text-transform: uppercase; font-weight: 700;">Total Tickets</MudText>
+                        <MudText Typo="Typo.h4" Class="fw-bold text-white mt-1">@totalIssues</MudText>
+                    </div>
+                    <MudAvatar Style="background-color: rgba(99, 102, 241, 0.15); color: #818cf8;">
+                        <MudIcon Icon="@Icons.Material.Filled.Assignment" />
+                    </MudAvatar>
+                </div>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-4" Style="background-color: #141721; border: 1px solid #232734; border-radius: 12px;">
+                <div class="d-flex justify-space-between align-center">
+                    <div>
+                        <MudText Typo="Typo.caption" Style="color: #71717a; text-transform: uppercase; font-weight: 700;">In Progress</MudText>
+                        <MudText Typo="Typo.h4" Class="fw-bold mt-1" Style="color: #38bdf8;">@inProgressIssues</MudText>
+                    </div>
+                    <MudAvatar Style="background-color: rgba(56, 189, 248, 0.15); color: #38bdf8;">
+                        <MudIcon Icon="@Icons.Material.Filled.Autorenew" />
+                    </MudAvatar>
+                </div>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-4" Style="background-color: #141721; border: 1px solid #232734; border-radius: 12px;">
+                <div class="d-flex justify-space-between align-center">
+                    <div>
+                        <MudText Typo="Typo.caption" Style="color: #71717a; text-transform: uppercase; font-weight: 700;">Completed</MudText>
+                        <MudText Typo="Typo.h4" Class="fw-bold mt-1" Style="color: #34d399;">@doneIssues</MudText>
+                    </div>
+                    <MudAvatar Style="background-color: rgba(52, 211, 153, 0.15); color: #34d399;">
+                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" />
+                    </MudAvatar>
+                </div>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-4" Style="background-color: #141721; border: 1px solid #232734; border-radius: 12px;">
+                <div class="d-flex justify-space-between align-center">
+                    <div>
+                        <MudText Typo="Typo.caption" Style="color: #71717a; text-transform: uppercase; font-weight: 700;">Critical Bugs</MudText>
+                        <MudText Typo="Typo.h4" Class="fw-bold mt-1" Style="color: #fb7185;">@criticalIssues</MudText>
+                    </div>
+                    <MudAvatar Style="background-color: rgba(244, 63, 94, 0.15); color: #fb7185;">
+                        <MudIcon Icon="@Icons.Material.Filled.Warning" />
+                    </MudAvatar>
+                </div>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <!-- Analytics & Critical Items -->
+    <MudGrid>
+        <!-- Status Breakdown Chart -->
+        <MudItem xs="12" md="5">
+            <MudPaper Class="pa-6" Style="background-color: #141721; border: 1px solid #232734; border-radius: 12px; height: 100%;">
+                <MudText Typo="Typo.h6" Class="fw-bold text-white mb-4">Status Distribution</MudText>
+
+                @if (chartData != null && chartData.Sum() > 0)
+                {
+                    <div class="d-flex justify-center align-center py-4">
+                        <MudChart T="double"
+                                  ChartType="ChartType.Donut"
+                                  Width="260px"
+                                  Height="260px"
+                                  InputData="@chartData"
+                                  InputLabels="@chartLabels" />
+                    </div>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Style="color: #71717a;">No status data available.</MudText>
+                }
+            </MudPaper>
+        </MudItem>
+
+        <!-- High Priority / Critical Issues Table -->
+        <MudItem xs="12" md="7">
+            <MudPaper Class="pa-6" Style="background-color: #141721; border: 1px solid #232734; border-radius: 12px; height: 100%;">
+                <div class="d-flex justify-space-between align-center mb-4">
+                    <MudText Typo="Typo.h6" Class="fw-bold text-white">Critical & High Priority Tickets</MudText>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => NavigationManager.NavigateTo("/issues"))">View All</MudButton>
+                </div>
+
+                @if (highPriorityIssues.Any())
+                {
+                    <MudTable Items="@highPriorityIssues" Hover="true" Elevation="0" Dense="true" Style="background-color: transparent; color: white;">
+                        <HeaderContent>
+                            <MudTh>Key</MudTh>
+                            <MudTh>Title</MudTh>
+                            <MudTh>Priority</MudTh>
+                            <MudTh>Status</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>
+                                <span style="font-family: monospace; font-weight: 700; color: #818cf8;">@context.IssueKey</span>
+                            </MudTd>
+                            <MudTd>
+                                <span style="font-weight: 500; color: white;">@context.Title</span>
+                            </MudTd>
+                            <MudTd>
+                                <span style="font-size: 0.75rem; font-weight: 600; padding: 2px 6px; border-radius: 4px; background-color: @GetPriorityBg(context.Priority); color: @GetPriorityTextColor(context.Priority);">
+                                    @context.Priority
+                                </span>
+                            </MudTd>
+                            <MudTd>
+                                <span style="color: #94a3b8; font-size: 0.85rem;">@context.Status</span>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Style="color: #71717a;">No high priority issues pending.</MudText>
+                }
+            </MudPaper>
+        </MudItem>
+
+        <!-- Recent Activity Feed Stream -->
+        <MudItem xs="12">
+            <MudPaper Class="pa-6 mt-4" Style="background-color: #141721; border: 1px solid #232734; border-radius: 12px;">
+                <div class="d-flex align-center gap-2 mb-4">
+                    <MudIcon Icon="@Icons.Material.Filled.History" Color="Color.Primary" />
+                    <MudText Typo="Typo.h6" Class="fw-bold text-white">Live Activity Stream</MudText>
+                </div>
+
+                @if (activities.Any())
+                {
+                    <MudTimeline TimelinePosition="TimelinePosition.Start">
+                        @foreach (var act in activities)
+                        {
+                            <MudTimelineItem Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
+                                <ItemContent>
+                                    <div class="d-flex justify-space-between align-center">
+                                        <div>
+                                            <span style="font-weight: 600; color: #f1f5f9;">@act.UserName</span>
+                                            <span style="color: #94a3b8; margin-left: 6px;">@act.Description</span>
+                                        </div>
+                                        <span style="font-size: 0.75rem; color: #71717a;">@FormatTimeAgo(act.Timestamp)</span>
+                                    </div>
+                                </ItemContent>
+                            </MudTimelineItem>
+                        }
+                    </MudTimeline>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Style="color: #71717a;">No activity logged yet.</MudText>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private bool isLoading = true;
+    private int totalIssues = 0;
+    private int inProgressIssues = 0;
+    private int doneIssues = 0;
+    private int criticalIssues = 0;
+
+    private double[] chartData = Array.Empty<double>();
+    private string[] chartLabels = new[] { "Backlog", "In Progress", "In Review", "Done" };
+    private List<IssueDto> highPriorityIssues = new();
+    private List<ActivityLog> activities = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDashboardData();
+    }
+
+    private async Task LoadDashboardData()
+    {
+        isLoading = true;
+        var allIssues = await IssueService.GetAllIssuesAsync();
+        activities = await IssueService.GetRecentActivitiesAsync(6);
+
+        totalIssues = allIssues.Count;
+        inProgressIssues = allIssues.Count(i => i.Status.Equals("InProgress", StringComparison.OrdinalIgnoreCase));
+        doneIssues = allIssues.Count(i => i.Status.Equals("Done", StringComparison.OrdinalIgnoreCase));
+        criticalIssues = allIssues.Count(i => i.Priority.Equals("Critical", StringComparison.OrdinalIgnoreCase));
+
+        int backlogCount = allIssues.Count(i => i.Status.Equals("Backlog", StringComparison.OrdinalIgnoreCase));
+        int inProgressCount = inProgressIssues;
+        int inReviewCount = allIssues.Count(i => i.Status.Equals("InReview", StringComparison.OrdinalIgnoreCase));
+        int doneCount = doneIssues;
+
+        chartData = new double[] { backlogCount, inProgressCount, inReviewCount, doneCount };
+
+        highPriorityIssues = allIssues
+            .Where(i => i.Priority == "Critical" || i.Priority == "High")
+            .Take(5)
+            .ToList();
+
+        isLoading = false;
+    }
+
+    private string FormatTimeAgo(DateTime dt)
+    {
+        var ts = DateTime.UtcNow - dt;
+        if (ts.TotalMinutes < 1) return "just now";
+        if (ts.TotalMinutes < 60) return $"{(int)ts.TotalMinutes}m ago";
+        if (ts.TotalHours < 24) return $"{(int)ts.TotalHours}h ago";
+        return dt.ToString("MMM dd, HH:mm");
+    }
+
+    private string GetPriorityBg(string priority) => priority switch
+    {
+        "Critical" => "rgba(244, 63, 94, 0.15)",
+        "High" => "rgba(251, 191, 36, 0.15)",
+        "Medium" => "rgba(99, 102, 241, 0.15)",
+        _ => "rgba(113, 113, 122, 0.15)"
+    };
+
+    private string GetPriorityTextColor(string priority) => priority switch
+    {
+        "Critical" => "#fb7185",
+        "High" => "#fcd34d",
+        "Medium" => "#818cf8",
+        _ => "#94a3b8"
+    };
+}

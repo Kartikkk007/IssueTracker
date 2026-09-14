@@ -1,0 +1,173 @@
+@page "/projects"
+@rendermode InteractiveServer
+@using IssueTracker.Application.Services
+@using IssueTracker.Infrastructure.Entities
+@using IssueTracker.UI.Components.Shared
+@inject IssueService IssueService
+@inject CsvExportService CsvExportService
+@inject AuthService AuthService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Projects</PageTitle>
+
+<div class="d-flex justify-space-between align-center mb-6">
+    <div>
+        <MudText Typo="Typo.h5" Class="fw-bold text-white mb-1">Projects</MudText>
+        <MudText Typo="Typo.body2" Style="color: #71717a;">Manage workspace projects and key prefixes</MudText>
+    </div>
+    <div class="d-flex gap-3">
+        <MudButton Variant="Variant.Outlined"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Download"
+                   Style="font-weight: 600; text-transform: none; border-radius: 8px;"
+                   OnClick="ExportProjectsToCsv">
+            Export CSV
+        </MudButton>
+        @if (AuthService.HasRole("Admin"))
+        {
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       Style="font-weight: 600; text-transform: none; border-radius: 8px;"
+                       OnClick="OpenCreateProjectDialog">
+                New Project
+            </MudButton>
+        }
+    </div>
+</div>
+
+@if (isLoading)
+{
+    <div class="d-flex justify-center align-center" style="height: 300px;">
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
+    </div>
+}
+else
+{
+    <MudGrid>
+        @foreach (var proj in projects)
+        {
+            var openIssuesCount = proj.Issues?.Count(i => i.Status != "Done") ?? 0;
+            var totalIssuesCount = proj.Issues?.Count ?? 0;
+
+            <MudItem xs="12" sm="6" md="4">
+                <MudCard Style="background-color: #141721; border: 1px solid #232734; border-radius: 12px; height: 100%; display: flex; flex-direction: column;">
+                    <MudCardHeader>
+                        <CardHeaderAvatar>
+                            <MudAvatar Style="background-color: #3730a3; color: #818cf8; font-weight: 700;">
+                                @proj.KeyPrefix
+                            </MudAvatar>
+                        </CardHeaderAvatar>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6" Class="fw-bold text-white">@proj.Name</MudText>
+                            <MudText Typo="Typo.caption" Style="color: #71717a;">Prefix: @proj.KeyPrefix</MudText>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent Style="flex-grow: 1;">
+                        <MudText Typo="Typo.body2" Style="color: #94a3b8; min-height: 40px;">
+                            @(string.IsNullOrEmpty(proj.Description) ? "No description provided." : proj.Description)
+                        </MudText>
+
+                        <div class="d-flex gap-4 mt-4">
+                            <div>
+                                <MudText Typo="Typo.caption" Style="color: #71717a;">Total Issues</MudText>
+                                <MudText Typo="Typo.h6" Class="fw-bold text-white">@totalIssuesCount</MudText>
+                            </div>
+                            <div>
+                                <MudText Typo="Typo.caption" Style="color: #71717a;">Open Issues</MudText>
+                                <MudText Typo="Typo.h6" Class="fw-bold" Style="color: #38bdf8;">@openIssuesCount</MudText>
+                            </div>
+                        </div>
+                    </MudCardContent>
+                    <MudCardActions Class="pa-4 style='border-top: 1px solid #1e2230;'">
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Primary"
+                                   FullWidth="true"
+                                   Style="border-radius: 8px;"
+                                   OnClick="@(() => OpenBoard(proj.ProjectId))">
+                            View Sprint Board
+                        </MudButton>
+                    </MudCardActions>
+                </MudCard>
+            </MudItem>
+        }
+    </MudGrid>
+}
+
+@code {
+    private List<Project> projects = new();
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProjects();
+    }
+
+    private async Task LoadProjects()
+    {
+        isLoading = true;
+        projects = await IssueService.GetProjectsAsync();
+        isLoading = false;
+    }
+
+    private async Task ExportProjectsToCsv()
+    {
+        try
+        {
+            var exportItems = projects.Select(p => new IssueTracker.Infrastructure.Entities.Project
+            {
+                Name = p.Name,
+                KeyPrefix = p.KeyPrefix,
+                Description = p.Description,
+                CreatedAt = p.CreatedAt
+            });
+
+            var csvBytes = CsvExportService.ExportProjectsToCsv(exportItems);
+            var base64 = Convert.ToBase64String(csvBytes);
+            var fileName = $"projects_summary_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+
+            await JSRuntime.InvokeVoidAsync("downloadFileFromBase64", fileName, "text/csv", base64);
+            Snackbar.Add("Exported project summary to CSV!", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Export failed: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void OpenBoard(int projectId)
+    {
+        NavigationManager.NavigateTo($"/kanban/{projectId}");
+    }
+
+    private async Task OpenCreateProjectDialog()
+    {
+        try
+        {
+            var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+            var dialog = await DialogService.ShowAsync<CreateProjectModal>("Create Project", options);
+            var result = await dialog.Result;
+
+            if (result is not null && !result.Canceled && result.Data is CreateProjectModal.CreateProjectResult res)
+            {
+                bool success = await IssueService.CreateProjectAsync(res.Name, res.KeyPrefix, res.Description);
+                if (success)
+                {
+                    Snackbar.Add("Project created successfully!", Severity.Success);
+                    await LoadProjects();
+                }
+                else
+                {
+                    Snackbar.Add("Error creating project", Severity.Error);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+}

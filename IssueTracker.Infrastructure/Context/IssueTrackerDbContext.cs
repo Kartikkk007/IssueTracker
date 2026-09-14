@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using IssueTracker.Infrastructure.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +19,10 @@ public partial class IssueTrackerDbContext : DbContext
     public virtual DbSet<Tag> Tags { get; set; }
 
     public virtual DbSet<User> Users { get; set; }
+
+    public virtual DbSet<ActivityLog> ActivityLogs { get; set; }
+
+    public virtual DbSet<Comment> Comments { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -101,6 +105,7 @@ public partial class IssueTrackerDbContext : DbContext
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(sysutcdatetime())");
             entity.Property(e => e.Email).HasMaxLength(150);
             entity.Property(e => e.FullName).HasMaxLength(120);
+            entity.Property(e => e.Role).HasMaxLength(50).HasDefaultValue("Developer");
         });
 
         OnModelCreatingPartial(modelBuilder);

@@ -13,12 +13,23 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 
-builder.Services.AddDbContext<IssueTrackerDbContext>(options =>
+builder.Services.AddDbContextFactory<IssueTrackerDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddScoped(sp => 
+    sp.GetRequiredService<IDbContextFactory<IssueTrackerDbContext>>().CreateDbContext());
 
 
 builder.Services.AddScoped<IssueRepository>();
 builder.Services.AddScoped<IssueService>();
+builder.Services.AddScoped<CsvExportService>();
+builder.Services.AddScoped<JwtTokenService>();
+builder.Services.AddScoped<JwtAuthenticationStateProvider>();
+builder.Services.AddScoped<Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider>(sp => 
+    sp.GetRequiredService<JwtAuthenticationStateProvider>());
+builder.Services.AddScoped<AuthService>();
+builder.Services.AddAuthorizationCore();
+builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddMudServices();
 
 

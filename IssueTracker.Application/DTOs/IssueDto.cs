@@ -1,4 +1,4 @@
-﻿namespace IssueTracker.Application.DTOs;
+namespace IssueTracker.Application.DTOs;
 
 public record IssueDto(
     int IssueId,
@@ -7,7 +7,10 @@ public record IssueDto(
     string? Description,
     string Priority,
     string Status,
+    int? AssigneeId,
     string? AssigneeName,
+    int ProjectId,
+    string? ProjectName,
     DateTime CreatedAt,
     List<string> Tags
 );

@@ -1,4 +1,4 @@
-﻿@page "/kanban"
+@page "/kanban"
 @page "/kanban/{ProjectId:int}"
 @rendermode InteractiveServer
 @using IssueTracker.Application.DTOs
@@ -70,9 +70,10 @@ else
             }
         </ChildContent>
         <ItemRenderer>
-            <div style="background-color: #1a1e2b; border: 1px solid #282e40; border-radius: 8px; padding: 14px; cursor: grab; transition: all 0.2s ease;"
+            <div style="background-color: #1a1e2b; border: 1px solid #282e40; border-radius: 8px; padding: 14px; cursor: pointer; transition: all 0.2s ease;"
                  onmouseover="this.style.borderColor='#3f4865'; this.style.transform='translateY(-2px)';"
-                 onmouseout="this.style.borderColor='#282e40'; this.style.transform='translateY(0)';">
+                 onmouseout="this.style.borderColor='#282e40'; this.style.transform='translateY(0)';"
+                 @onclick="@(() => OpenIssueDetails(context))">
                 
                 <!-- Ticket Header -->
                 <div class="d-flex justify-space-between align-center mb-2">
@@ -198,6 +199,56 @@ else
                 else
                 {
                     Snackbar.Add("Error creating issue", Severity.Error);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task OpenIssueDetails(IssueDto item)
+    {
+        try
+        {
+            var users = await IssueService.GetUsersAsync();
+            var parameters = new DialogParameters
+            {
+                { nameof(IssueDetailsModal.Issue), item },
+                { nameof(IssueDetailsModal.Users), users }
+            };
+
+            var options = new DialogOptions
+            {
+                CloseOnEscapeKey = true,
+                MaxWidth = MaxWidth.Small,
+                FullWidth = true,
+                CloseButton = true
+            };
+
+            var dialog = await DialogService.ShowAsync<IssueDetailsModal>("Issue Details", parameters, options);
+            var result = await dialog.Result;
+
+            if (result is not null && !result.Canceled && result.Data is IssueDetailsModal.IssueDialogResult dialogResult)
+            {
+                if (dialogResult.Action == IssueDetailsModal.IssueDialogAction.Update)
+                {
+                    var success = await IssueService.UpdateIssueAsync(dialogResult.Issue);
+                    if (success)
+                    {
+                        Snackbar.Add("Issue updated successfully!", Severity.Success);
+                        await LoadBoard();
+                    }
+                }
+                else if (dialogResult.Action == IssueDetailsModal.IssueDialogAction.Delete)
+                {
+                    var success = await IssueService.DeleteIssueAsync(dialogResult.Issue.IssueId);
+                    if (success)
+                    {
+                        Snackbar.Add("Issue deleted", Severity.Info);
+                        await LoadBoard();
+                    }
                 }
             }
         }

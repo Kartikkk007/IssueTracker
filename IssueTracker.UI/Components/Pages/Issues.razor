@@ -1,0 +1,257 @@
+@page "/issues"
+@rendermode InteractiveServer
+@using IssueTracker.Application.DTOs
+@using IssueTracker.Application.Services
+@using IssueTracker.Infrastructure.Entities
+@using IssueTracker.UI.Components.Shared
+@inject IssueService IssueService
+@inject CsvExportService CsvExportService
+@inject AuthService AuthService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+
+<PageTitle>All Issues</PageTitle>
+
+<div class="d-flex justify-space-between align-center mb-6">
+    <div>
+        <MudText Typo="Typo.h5" Class="fw-bold text-white mb-1">All Issues</MudText>
+        <MudText Typo="Typo.body2" Style="color: #71717a;">Search, filter, and manage tickets across all projects</MudText>
+    </div>
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Download"
+               OnClick="ExportToCsv"
+               Style="border-radius: 8px;">
+        Export CSV
+    </MudButton>
+</div>
+
+<MudTable Items="@FilteredIssues"
+          Hover="true"
+          Loading="@isLoading"
+          Elevation="0"
+          Style="background-color: #141721; border: 1px solid #232734; border-radius: 12px; color: #f1f5f9;">
+    <ToolBarContent>
+        <MudTextField @bind-Value="searchString"
+                      Placeholder="Search by Key or Title..."
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search"
+                      IconSize="Size.Medium"
+                      Class="mt-0 mb-2 me-4"
+                      Style="color: white;" />
+        <MudSpacer />
+        <MudSelect T="string" Label="Status Filter" @bind-Value="selectedStatus" Variant="Variant.Outlined" Dense="true" Style="width: 160px; margin-right: 12px;">
+            <MudSelectItem Value="@("All")">All Statuses</MudSelectItem>
+            <MudSelectItem Value="@("Backlog")">Backlog</MudSelectItem>
+            <MudSelectItem Value="@("InProgress")">In Progress</MudSelectItem>
+            <MudSelectItem Value="@("InReview")">In Review</MudSelectItem>
+            <MudSelectItem Value="@("Done")">Done</MudSelectItem>
+        </MudSelect>
+        <MudSelect T="string" Label="Priority Filter" @bind-Value="selectedPriority" Variant="Variant.Outlined" Dense="true" Style="width: 160px;">
+            <MudSelectItem Value="@("All")">All Priorities</MudSelectItem>
+            <MudSelectItem Value="@("Low")">Low</MudSelectItem>
+            <MudSelectItem Value="@("Medium")">Medium</MudSelectItem>
+            <MudSelectItem Value="@("High")">High</MudSelectItem>
+            <MudSelectItem Value="@("Critical")">Critical</MudSelectItem>
+        </MudSelect>
+    </ToolBarContent>
+    <HeaderContent>
+        <MudTh>Key</MudTh>
+        <MudTh>Title</MudTh>
+        <MudTh>Project</MudTh>
+        <MudTh>Priority</MudTh>
+        <MudTh>Status</MudTh>
+        <MudTh>Assignee</MudTh>
+        <MudTh>Created</MudTh>
+        <MudTh Style="text-align: right;">Actions</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Key">
+            <span style="font-family: monospace; font-weight: 700; color: #818cf8;">@context.IssueKey</span>
+        </MudTd>
+        <MudTd DataLabel="Title">
+            <span style="font-weight: 500; color: white;">@context.Title</span>
+        </MudTd>
+        <MudTd DataLabel="Project">
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Style="border-color: #333a50; color: #cbd5e1;">
+                @(context.ProjectName ?? "Default")
+            </MudChip>
+        </MudTd>
+        <MudTd DataLabel="Priority">
+            <span style="font-size: 0.75rem; font-weight: 600; padding: 3px 8px; border-radius: 4px; background-color: @GetPriorityBg(context.Priority); color: @GetPriorityTextColor(context.Priority);">
+                @context.Priority
+            </span>
+        </MudTd>
+        <MudTd DataLabel="Status">
+            <MudChip T="string" Size="Size.Small" Style="@GetStatusChipStyle(context.Status)">
+                @FormatStatus(context.Status)
+            </MudChip>
+        </MudTd>
+        <MudTd DataLabel="Assignee">
+            <div class="d-flex align-center gap-2">
+                <MudAvatar Size="Size.Small" Style="width: 22px; height: 22px; font-size: 0.65rem; background-color: #3730a3; color: #e0e7ff;">
+                    @(string.IsNullOrEmpty(context.AssigneeName) ? "?" : context.AssigneeName[0].ToString().ToUpper())
+                </MudAvatar>
+                <span>@(context.AssigneeName ?? "Unassigned")</span>
+            </div>
+        </MudTd>
+        <MudTd DataLabel="Created">
+            <span style="color: #94a3b8; font-size: 0.85rem;">@context.CreatedAt.ToString("MMM dd, yyyy")</span>
+        </MudTd>
+        <MudTd DataLabel="Actions" Style="text-align: right;">
+            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Primary" OnClick="@(() => EditIssue(context))" />
+            @if (AuthService.HasRole("Admin"))
+            {
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => DeleteIssue(context.IssueId))" />
+            }
+        </MudTd>
+    </RowTemplate>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new int[]{5, 10, 25}" />
+    </PagerContent>
+</MudTable>
+
+@code {
+    private List<IssueDto> issues = new();
+    private bool isLoading = true;
+    private string searchString = "";
+    private string selectedStatus = "All";
+    private string selectedPriority = "All";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadIssues();
+    }
+
+    private async Task LoadIssues()
+    {
+        isLoading = true;
+        issues = await IssueService.GetAllIssuesAsync();
+        isLoading = false;
+    }
+
+    private IEnumerable<IssueDto> FilteredIssues => issues.Where(i =>
+    {
+        if (!string.IsNullOrWhiteSpace(searchString))
+        {
+            bool matchesKey = i.IssueKey.Contains(searchString, StringComparison.OrdinalIgnoreCase);
+            bool matchesTitle = i.Title.Contains(searchString, StringComparison.OrdinalIgnoreCase);
+            if (!matchesKey && !matchesTitle) return false;
+        }
+
+        if (selectedStatus != "All" && !i.Status.Equals(selectedStatus, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (selectedPriority != "All" && !i.Priority.Equals(selectedPriority, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return true;
+    });
+
+    private async Task EditIssue(IssueDto item)
+    {
+        try
+        {
+            var users = await IssueService.GetUsersAsync();
+            var parameters = new DialogParameters
+            {
+                { nameof(IssueDetailsModal.Issue), item },
+                { nameof(IssueDetailsModal.Users), users }
+            };
+
+            var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+            var dialog = await DialogService.ShowAsync<IssueDetailsModal>("Edit Issue", parameters, options);
+            var result = await dialog.Result;
+
+            if (result is not null && !result.Canceled && result.Data is IssueDetailsModal.IssueDialogResult dialogResult)
+            {
+                if (dialogResult.Action == IssueDetailsModal.IssueDialogAction.Update)
+                {
+                    await IssueService.UpdateIssueAsync(dialogResult.Issue);
+                    Snackbar.Add("Issue updated!", Severity.Success);
+                }
+                else if (dialogResult.Action == IssueDetailsModal.IssueDialogAction.Delete)
+                {
+                    await IssueService.DeleteIssueAsync(dialogResult.Issue.IssueId);
+                    Snackbar.Add("Issue deleted", Severity.Info);
+                }
+                await LoadIssues();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DeleteIssue(int id)
+    {
+        bool success = await IssueService.DeleteIssueAsync(id);
+        if (success)
+        {
+            Snackbar.Add("Issue deleted", Severity.Info);
+            await LoadIssues();
+        }
+    }
+
+    private async Task ExportToCsv()
+    {
+        try
+        {
+            var exportItems = FilteredIssues.Select(i => new IssueTracker.Infrastructure.Entities.Issue
+            {
+                IssueKey = i.IssueKey,
+                Title = i.Title,
+                Status = i.Status,
+                Priority = i.Priority,
+                CreatedAt = i.CreatedAt,
+                Project = new IssueTracker.Infrastructure.Entities.Project { Name = i.ProjectName ?? "" },
+                Assignee = new IssueTracker.Infrastructure.Entities.User { FullName = i.AssigneeName ?? "Unassigned" }
+            });
+
+            var csvBytes = CsvExportService.ExportIssuesToCsv(exportItems);
+            var base64 = Convert.ToBase64String(csvBytes);
+            var fileName = $"issues_export_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+
+            await JSRuntime.InvokeVoidAsync("downloadFileFromBase64", fileName, "text/csv", base64);
+            Snackbar.Add("Exported issues to CSV!", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Export failed: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private string FormatStatus(string s) => s switch
+    {
+        "InProgress" => "In Progress",
+        "InReview" => "In Review",
+        _ => s
+    };
+
+    private string GetStatusChipStyle(string s) => s switch
+    {
+        "Backlog" => "background-color: #27272a; color: #a1a1aa;",
+        "InProgress" => "background-color: #0284c7; color: #ffffff;",
+        "InReview" => "background-color: #d97706; color: #ffffff;",
+        "Done" => "background-color: #059669; color: #ffffff;",
+        _ => "background-color: #27272a; color: #a1a1aa;"
+    };
+
+    private string GetPriorityBg(string priority) => priority switch
+    {
+        "Critical" => "rgba(244, 63, 94, 0.15)",
+        "High" => "rgba(251, 191, 36, 0.15)",
+        "Medium" => "rgba(99, 102, 241, 0.15)",
+        _ => "rgba(113, 113, 122, 0.15)"
+    };
+
+    private string GetPriorityTextColor(string priority) => priority switch
+    {
+        "Critical" => "#fb7185",
+        "High" => "#fcd34d",
+        "Medium" => "#818cf8",
+        _ => "#94a3b8"
+    };
+}

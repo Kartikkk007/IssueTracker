@@ -1,6 +1,12 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@using IssueTracker.Application.Services
+@using IssueTracker.Infrastructure.Entities
+@inject AuthService AuthService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@implements IDisposable
 
-<MudThemeProvider Theme="_customDarkTheme" IsDarkMode="true" />
+<MudThemeProvider Theme="_theme" IsDarkMode="_isDarkMode" />
 <MudDialogProvider Position="DialogPosition.Center"
                    CloseButton="true"
                    MaxWidth="MaxWidth.Small"
@@ -10,32 +16,91 @@
 
 <MudLayout>
     <!-- Top App Bar -->
-    <MudAppBar Elevation="0" Style="background-color: #161922; border-bottom: 1px solid #232734;">
+    <MudAppBar Elevation="0" Style="@($"border-bottom: 1px solid {(_isDarkMode ? "#232734" : "#e2e8f0")};")">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@ToggleDrawer" />
         <MudIcon Icon="@Icons.Material.Filled.BugReport" Color="Color.Primary" Class="ml-2 mr-2" />
-        <MudText Typo="Typo.h6" Class="fw-bold" Style="letter-spacing: -0.5px;">Linear<span style="color: #6366f1;">Issue</span></MudText>
+        <MudText Typo="Typo.h6" Class="fw-bold" Style="letter-spacing: -0.5px;">Linear<span style="@($"color: {_primaryColor};")">Issue</span></MudText>
         
         <MudSpacer />
         
-        <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Style="background-color: #232734; color: #a1a1aa;">
+        <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Class="mr-3" Style="@($"background-color: {(_isDarkMode ? "#232734" : "#e2e8f0")}; color: {(_isDarkMode ? "#a1a1aa" : "#475569")};")">
             Sprint 1 • Active
         </MudChip>
-        <MudIconButton Icon="@Icons.Custom.Brands.GitHub" Color="Color.Inherit" Class="ml-2" />
+
+        <!-- Theme Accent Picker -->
+        <MudMenu Icon="@Icons.Material.Filled.Palette" Color="Color.Inherit" Dense="true" Class="mr-1">
+            <MudMenuItem OnClick="@(() => SetAccent("#6366f1"))">
+                <div class="d-flex align-center gap-2"><div style="width: 14px; height: 14px; border-radius: 50%; background-color: #6366f1;"></div> Indigo</div>
+            </MudMenuItem>
+            <MudMenuItem OnClick="@(() => SetAccent("#10b981"))">
+                <div class="d-flex align-center gap-2"><div style="width: 14px; height: 14px; border-radius: 50%; background-color: #10b981;"></div> Emerald</div>
+            </MudMenuItem>
+            <MudMenuItem OnClick="@(() => SetAccent("#f59e0b"))">
+                <div class="d-flex align-center gap-2"><div style="width: 14px; height: 14px; border-radius: 50%; background-color: #f59e0b;"></div> Amber</div>
+            </MudMenuItem>
+            <MudMenuItem OnClick="@(() => SetAccent("#f43f5e"))">
+                <div class="d-flex align-center gap-2"><div style="width: 14px; height: 14px; border-radius: 50%; background-color: #f43f5e;"></div> Rose</div>
+            </MudMenuItem>
+        </MudMenu>
+
+        <!-- Light / Dark Toggle -->
+        <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.Brightness7 : Icons.Material.Filled.Brightness4)"
+                       Color="Color.Inherit"
+                       OnClick="ToggleDarkMode" />
+
+        <!-- User Role & Profile Switcher -->
+        @if (AuthService.CurrentUser != null)
+        {
+            <MudMenu Dense="true" Class="ml-2" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                <ActivatorContent>
+                    <div class="d-flex align-center gap-2 cursor-pointer pa-1 rounded-pill" style="@($"background-color: {(_isDarkMode ? "#1a1e2b" : "#e2e8f0")}; border: 1px solid {(_isDarkMode ? "#2e3446" : "#cbd5e1")}; padding-right: 10px !important;")">
+                        <MudAvatar Size="Size.Small" Style="@GetAvatarStyle(AuthService.CurrentUser.Role)">
+                            @(string.IsNullOrEmpty(AuthService.CurrentUser.FullName) ? "?" : AuthService.CurrentUser.FullName[0].ToString().ToUpper())
+                        </MudAvatar>
+                        <div class="d-none d-sm-flex flex-column text-left">
+                            <span style="font-size: 0.8rem; font-weight: 700; line-height: 1.1; color: @(_isDarkMode ? "#f1f5f9" : "#0f172a");">@AuthService.CurrentUser.FullName</span>
+                            <span style="font-size: 0.68rem; font-weight: 600; color: @GetRoleColor(AuthService.CurrentUser.Role);">@AuthService.CurrentUser.Role</span>
+                        </div>
+                        <MudIcon Icon="@Icons.Material.Filled.ArrowDropDown" Size="Size.Small" Style="color: #94a3b8;" />
+                    </div>
+                </ActivatorContent>
+                <ChildContent>
+                    <div class="px-4 py-3" style="border-bottom: 1px solid #232734; min-width: 200px;">
+                        <MudText Typo="Typo.body2" Class="fw-bold text-white">@AuthService.CurrentUser.FullName</MudText>
+                        <MudText Typo="Typo.caption" Style="color: #94a3b8;">@AuthService.CurrentUser.Email</MudText>
+                        <div class="mt-2">
+                            <span style="font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 4px; @GetRoleBadgeStyle(AuthService.CurrentUser.Role)">
+                                @AuthService.CurrentUser.Role
+                            </span>
+                        </div>
+                    </div>
+                    <MudMenuItem Icon="@Icons.Material.Filled.Logout" IconColor="Color.Error" OnClick="Logout">
+                        Sign Out
+                    </MudMenuItem>
+                </ChildContent>
+            </MudMenu>
+        }
+        else
+        {
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Size="Size.Small"
+                       Class="ml-2"
+                       StartIcon="@Icons.Material.Filled.Login"
+                       OnClick="@(() => NavigationManager.NavigateTo("/login"))">
+                Sign In
+            </MudButton>
+        }
     </MudAppBar>
     
     <!-- Sidebar Navigation -->
     <MudDrawer @bind-Open="@_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="0"
-               Style="background-color: #161922; border-right: 1px solid #232734;">
-        <MudDrawerHeader Class="px-4 py-3">
-            <MudText Typo="Typo.caption" Style="color: #71717a; text-transform: uppercase; font-weight: 700; letter-spacing: 1px;">
-                Workspace
-            </MudText>
-        </MudDrawerHeader>
+               Style="@($"border-right: 1px solid {(_isDarkMode ? "#232734" : "#e2e8f0")};")">
         <NavMenu />
     </MudDrawer>
     
     <!-- Main Content Area -->
-    <MudMainContent Style="background-color: #0f1117; min-height: 100vh;">
+    <MudMainContent Style="@($"min-height: 100vh; background-color: {(_isDarkMode ? "#0f1117" : "#f8fafc")};")">
         <MudContainer MaxWidth="MaxWidth.ExtraExtraLarge" Class="pa-6">
             @Body
         </MudContainer>
@@ -44,30 +109,104 @@
 
 @code {
     private bool _drawerOpen = true;
+    private bool _isDarkMode = true;
+    private string _primaryColor = "#6366f1";
 
     private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+    private void ToggleDarkMode() => _isDarkMode = !_isDarkMode;
 
-    private readonly MudTheme _customDarkTheme = new()
+    private void SetAccent(string color)
     {
-        PaletteDark = new PaletteDark()
-        {
-            Primary = "#6366f1",             // Indigo accent
-            PrimaryContrastText = "#ffffff",
-            Secondary = "#8b5cf6",           // Purple accent
-            Background = "#0f1117",          // Deep dark canvas
-            Surface = "#161922",             // Elevated card surface
-            AppbarBackground = "#161922",
-            DrawerBackground = "#161922",
-            TextPrimary = "#f1f5f9",          // Bright white text
-            TextSecondary = "#94a3b8",        // Muted text
-            ActionDefault = "#94a3b8",
-            Divider = "#232734",
-            LinesDefault = "#232734",
-            TableLines = "#232734",
-            Error = "#f43f5e",               // Rose red
-            Warning = "#fbbf24",             // Amber
-            Info = "#38bdf8",                // Sky blue
-            Success = "#34d399"              // Emerald green
-        }
+        _primaryColor = color;
+        BuildTheme();
+    }
+
+    private MudTheme _theme = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        BuildTheme();
+        AuthService.OnChange += StateHasChanged;
+        await AuthService.InitializeAsync();
+    }
+
+    public void Dispose()
+    {
+        AuthService.OnChange -= StateHasChanged;
+    }
+
+    private void Logout()
+    {
+        AuthService.Logout();
+        Snackbar.Add("Signed out", Severity.Normal);
+        NavigationManager.NavigateTo("/login");
+    }
+
+    private string GetAvatarStyle(string role) => role switch
+    {
+        "Admin" => "background-color: rgba(244, 63, 94, 0.2); color: #fb7185; font-weight: 700;",
+        "QA Tester" => "background-color: rgba(56, 189, 248, 0.2); color: #38bdf8; font-weight: 700;",
+        _ => "background-color: rgba(99, 102, 241, 0.2); color: #818cf8; font-weight: 700;"
     };
+
+    private string GetRoleBadgeStyle(string role) => role switch
+    {
+        "Admin" => "background-color: rgba(244, 63, 94, 0.15); color: #fb7185;",
+        "QA Tester" => "background-color: rgba(56, 189, 248, 0.15); color: #38bdf8;",
+        _ => "background-color: rgba(99, 102, 241, 0.15); color: #818cf8;"
+    };
+
+    private string GetRoleColor(string role) => role switch
+    {
+        "Admin" => "#fb7185",
+        "QA Tester" => "#38bdf8",
+        _ => "#818cf8"
+    };
+
+    private void BuildTheme()
+    {
+        _theme = new MudTheme()
+        {
+            PaletteDark = new PaletteDark()
+            {
+                Primary = _primaryColor,
+                PrimaryContrastText = "#ffffff",
+                Secondary = "#8b5cf6",
+                Background = "#0f1117",
+                Surface = "#161922",
+                AppbarBackground = "#161922",
+                DrawerBackground = "#161922",
+                TextPrimary = "#f1f5f9",
+                TextSecondary = "#94a3b8",
+                ActionDefault = "#94a3b8",
+                Divider = "#232734",
+                LinesDefault = "#232734",
+                TableLines = "#232734",
+                Error = "#f43f5e",
+                Warning = "#fbbf24",
+                Info = "#38bdf8",
+                Success = "#34d399"
+            },
+            PaletteLight = new PaletteLight()
+            {
+                Primary = _primaryColor,
+                PrimaryContrastText = "#ffffff",
+                Secondary = "#8b5cf6",
+                Background = "#f8fafc",
+                Surface = "#ffffff",
+                AppbarBackground = "#ffffff",
+                DrawerBackground = "#ffffff",
+                TextPrimary = "#0f172a",
+                TextSecondary = "#475569",
+                ActionDefault = "#475569",
+                Divider = "#e2e8f0",
+                LinesDefault = "#e2e8f0",
+                TableLines = "#e2e8f0",
+                Error = "#e11d48",
+                Warning = "#d97706",
+                Info = "#0284c7",
+                Success = "#059669"
+            }
+        };
+    }
 }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace IssueTracker.Infrastructure.Entities;
@@ -12,6 +12,8 @@ public partial class User
     public string Email { get; set; } = null!;
 
     public string? AvatarUrl { get; set; }
+
+    public string Role { get; set; } = "Developer";
 
     public DateTime CreatedAt { get; set; }
 

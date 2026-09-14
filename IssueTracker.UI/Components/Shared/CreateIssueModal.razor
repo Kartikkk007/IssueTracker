@@ -1,5 +1,7 @@
-﻿@using IssueTracker.Application.DTOs
+@using IssueTracker.Application.DTOs
+@using IssueTracker.Application.Services
 @using IssueTracker.Infrastructure.Entities
+@inject AuthService AuthService
 
 <MudDialog Style="background-color: #161922; border: 1px solid #282e40; border-radius: 12px;">
     <TitleContent>
@@ -72,7 +74,7 @@
     {
         command.ProjectId = ProjectId;
         command.Priority = "Medium";
-        command.ReporterId = Users.FirstOrDefault()?.UserId ?? 1;
+        command.ReporterId = AuthService.CurrentUser?.UserId ?? Users.FirstOrDefault()?.UserId ?? 1;
     }
 
     private void Submit()
