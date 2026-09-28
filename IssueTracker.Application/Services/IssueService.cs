@@ -185,6 +185,21 @@ public class IssueService
         return success;
     }
 
+    public async Task<bool> DeleteProjectAsync(int projectId)
+    {
+        var projects = await _issueRepository.GetProjectsAsync();
+        var existing = projects.FirstOrDefault(p => p.ProjectId == projectId);
+        string name = existing?.Name ?? $"Project #{projectId}";
+        string prefix = existing?.KeyPrefix ?? "";
+
+        bool success = await _issueRepository.DeleteProjectAsync(projectId);
+        if (success)
+        {
+            await _issueRepository.LogActivityAsync(null, prefix, "Project Deleted", $"deleted project '{name}' ({prefix})");
+        }
+        return success;
+    }
+
     public async Task<bool> CreateIssueAsync(CreateIssueCommand command)
     {
         using var context = await _contextFactory.CreateDbContextAsync();

@@ -65,6 +65,15 @@ else
                             <MudText Typo="Typo.h6" Class="fw-bold text-white">@proj.Name</MudText>
                             <MudText Typo="Typo.caption" Style="color: #71717a;">Prefix: @proj.KeyPrefix</MudText>
                         </CardHeaderContent>
+                        <CardHeaderActions>
+                            @if (AuthService.HasRole("Admin"))
+                            {
+                                <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                                               Color="Color.Error"
+                                               Size="Size.Small"
+                                               OnClick="@(() => ConfirmDeleteProject(proj))" />
+                            }
+                        </CardHeaderActions>
                     </MudCardHeader>
                     <MudCardContent Style="flex-grow: 1;">
                         <MudText Typo="Typo.body2" Style="color: #94a3b8; min-height: 40px;">
@@ -141,6 +150,33 @@ else
     private void OpenBoard(int projectId)
     {
         NavigationManager.NavigateTo($"/kanban/{projectId}");
+    }
+
+    private async Task ConfirmDeleteProject(Project proj)
+    {
+        if (!AuthService.HasRole("Admin")) return;
+
+        bool? confirmed = await DialogService.ShowMessageBoxAsync(
+            "Delete Project",
+            $"Are you sure you want to permanently delete project '{proj.Name}' ({proj.KeyPrefix}) and all its associated tickets?",
+            yesText: "Delete",
+            cancelText: "Cancel",
+            options: new DialogOptions { FullWidth = false, MaxWidth = MaxWidth.ExtraSmall }
+        );
+
+        if (confirmed == true)
+        {
+            bool success = await IssueService.DeleteProjectAsync(proj.ProjectId);
+            if (success)
+            {
+                Snackbar.Add($"Project '{proj.Name}' deleted successfully.", Severity.Success);
+                await LoadProjects();
+            }
+            else
+            {
+                Snackbar.Add("Failed to delete project.", Severity.Error);
+            }
+        }
     }
 
     private async Task OpenCreateProjectDialog()

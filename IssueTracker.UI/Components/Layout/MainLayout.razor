@@ -1,6 +1,7 @@
 @inherits LayoutComponentBase
 @using IssueTracker.Application.Services
 @using IssueTracker.Infrastructure.Entities
+@using IssueTracker.UI.Components.Shared
 @inject AuthService AuthService
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
@@ -17,15 +18,23 @@
 <MudLayout>
     <!-- Top App Bar -->
     <MudAppBar Elevation="0" Style="@($"border-bottom: 1px solid {(_isDarkMode ? "#232734" : "#e2e8f0")};")">
-        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@ToggleDrawer" />
+        @if (AuthService.CurrentUser != null)
+        {
+            <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@ToggleDrawer" />
+        }
         <MudIcon Icon="@Icons.Material.Filled.BugReport" Color="Color.Primary" Class="ml-2 mr-2" />
-        <MudText Typo="Typo.h6" Class="fw-bold" Style="letter-spacing: -0.5px;">Linear<span style="@($"color: {_primaryColor};")">Issue</span></MudText>
+        <MudText Typo="Typo.h6" Class="fw-bold cursor-pointer" Style="letter-spacing: -0.5px;" @onclick="@(() => NavigationManager.NavigateTo("/"))">
+            Linear<span style="@($"color: {_primaryColor};")">Issue</span>
+        </MudText>
         
         <MudSpacer />
         
-        <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Class="mr-3" Style="@($"background-color: {(_isDarkMode ? "#232734" : "#e2e8f0")}; color: {(_isDarkMode ? "#a1a1aa" : "#475569")};")">
-            Sprint 1 • Active
-        </MudChip>
+        @if (AuthService.CurrentUser != null)
+        {
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Class="mr-3" Style="@($"background-color: {(_isDarkMode ? "#232734" : "#e2e8f0")}; color: {(_isDarkMode ? "#a1a1aa" : "#475569")};")">
+                Sprint 1 • Active
+            </MudChip>
+        }
 
         <!-- Theme Accent Picker -->
         <MudMenu Icon="@Icons.Material.Filled.Palette" Color="Color.Inherit" Dense="true" Class="mr-1">
@@ -87,30 +96,53 @@
                        Size="Size.Small"
                        Class="ml-2"
                        StartIcon="@Icons.Material.Filled.Login"
-                       OnClick="@(() => NavigationManager.NavigateTo("/login"))">
+                       OnClick="@(() => NavigationManager.NavigateTo("/login"))"
+                       Style="font-weight: 700; border-radius: 8px;">
                 Sign In
             </MudButton>
         }
     </MudAppBar>
     
-    <!-- Sidebar Navigation -->
-    <MudDrawer @bind-Open="@_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="0"
-               Style="@($"border-right: 1px solid {(_isDarkMode ? "#232734" : "#e2e8f0")};")">
-        <NavMenu />
-    </MudDrawer>
-    
-    <!-- Main Content Area -->
-    <MudMainContent Style="@($"min-height: 100vh; background-color: {(_isDarkMode ? "#0f1117" : "#f8fafc")};")">
-        <MudContainer MaxWidth="MaxWidth.ExtraExtraLarge" Class="pa-6">
-            @Body
-        </MudContainer>
-    </MudMainContent>
+    @if (AuthService.CurrentUser != null)
+    {
+        <!-- Sidebar Navigation (Only visible when signed in) -->
+        <MudDrawer @bind-Open="@_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="0"
+                   Style="@($"border-right: 1px solid {(_isDarkMode ? "#232734" : "#e2e8f0")};")">
+            <NavMenu />
+        </MudDrawer>
+        
+        <!-- Main Content Area -->
+        <MudMainContent Style="@($"min-height: 100vh; background-color: {(_isDarkMode ? "#0f1117" : "#f8fafc")};")">
+            <MudContainer MaxWidth="MaxWidth.ExtraExtraLarge" Class="pa-6">
+                @Body
+            </MudContainer>
+        </MudMainContent>
+    }
+    else if (IsLoginPage)
+    {
+        <!-- Focused Login Container without Sidebar -->
+        <MudMainContent Style="@($"min-height: 100vh; background-color: {(_isDarkMode ? "#0f1117" : "#f8fafc")};")">
+            <MudContainer MaxWidth="MaxWidth.Medium" Class="pa-6">
+                @Body
+            </MudContainer>
+        </MudMainContent>
+    }
+    else
+    {
+        <!-- Logged Out State: Welcome Landing Page with App Name and Tagline -->
+        <MudMainContent Style="@($"min-height: 100vh; background-color: {(_isDarkMode ? "#0f1117" : "#f8fafc")};")">
+            <WelcomeView />
+        </MudMainContent>
+    }
 </MudLayout>
 
 @code {
     private bool _drawerOpen = true;
     private bool _isDarkMode = true;
     private string _primaryColor = "#6366f1";
+
+    private bool IsLoginPage => NavigationManager.Uri.EndsWith("/login", StringComparison.OrdinalIgnoreCase) ||
+                                NavigationManager.Uri.Contains("/login?", StringComparison.OrdinalIgnoreCase);
 
     private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
     private void ToggleDarkMode() => _isDarkMode = !_isDarkMode;
@@ -126,20 +158,25 @@
     protected override async Task OnInitializedAsync()
     {
         BuildTheme();
-        AuthService.OnChange += StateHasChanged;
+        AuthService.OnChange += OnAuthChanged;
+        NavigationManager.LocationChanged += OnLocationChanged;
         await AuthService.InitializeAsync();
     }
 
+    private void OnAuthChanged() => InvokeAsync(StateHasChanged);
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e) => InvokeAsync(StateHasChanged);
+
     public void Dispose()
     {
-        AuthService.OnChange -= StateHasChanged;
+        AuthService.OnChange -= OnAuthChanged;
+        NavigationManager.LocationChanged -= OnLocationChanged;
     }
 
     private void Logout()
     {
         AuthService.Logout();
-        Snackbar.Add("Signed out", Severity.Normal);
-        NavigationManager.NavigateTo("/login");
+        Snackbar.Add("You have been signed out.", Severity.Info);
+        NavigationManager.NavigateTo("/");
     }
 
     private string GetAvatarStyle(string role) => role switch

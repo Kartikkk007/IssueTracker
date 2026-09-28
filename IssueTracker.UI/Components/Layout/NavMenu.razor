@@ -68,7 +68,7 @@
     private void HandleLogout()
     {
         AuthService.Logout();
-        Snackbar.Add("Logged out successfully.", Severity.Info);
-        NavigationManager.NavigateTo("/login");
+        Snackbar.Add("You have been signed out.", Severity.Info);
+        NavigationManager.NavigateTo("/");
     }
 }

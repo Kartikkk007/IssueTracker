@@ -1,0 +1,78 @@
+@using IssueTracker.Application.Services
+@inject NavigationManager NavigationManager
+
+<div class="d-flex flex-column align-center justify-center text-center px-4 py-12" style="min-height: 80vh; max-width: 900px; margin: 0 auto;">
+    <!-- App Badge & Logo -->
+    <div class="d-inline-flex align-center justify-center pa-4 mb-4 rounded-circle" 
+         style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.2)); border: 1px solid rgba(99, 102, 241, 0.3);">
+        <MudIcon Icon="@Icons.Material.Filled.BugReport" Color="Color.Primary" Style="font-size: 3.5rem;" />
+    </div>
+
+    <!-- Application Name -->
+    <MudText Typo="Typo.h3" Class="fw-bold text-white mb-2" Style="letter-spacing: -1px;">
+        Linear<span style="color: #6366f1;">Issue</span> Tracker
+    </MudText>
+
+    <!-- Tagline -->
+    <MudText Typo="Typo.h6" Style="color: #94a3b8; max-width: 650px; font-weight: 400; line-height: 1.5;" Class="mb-4">
+        High-velocity issue tracking and agile sprint management designed for modern engineering teams.
+    </MudText>
+
+    <!-- Login Required Prompt Card -->
+    <MudPaper Class="pa-6 my-6 text-center" 
+              Style="background-color: #141721; border: 1px solid #282e40; border-radius: 16px; width: 100%; max-width: 520px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+        
+        <MudIcon Icon="@Icons.Material.Filled.LockPerson" Color="Color.Primary" Size="Size.Large" Class="mb-2" />
+        
+        <MudText Typo="Typo.h6" Class="fw-bold text-white mb-1">
+            Authentication Required
+        </MudText>
+        
+        <MudText Typo="Typo.body2" Style="color: #94a3b8;" Class="mb-6">
+            You are currently signed out. Please log in with your credentials to access your projects, sprint boards, and team issues.
+        </MudText>
+
+        <MudButton Variant="Variant.Filled" 
+                   Color="Color.Primary" 
+                   Size="Size.Large"
+                   FullWidth="true"
+                   StartIcon="@Icons.Material.Filled.Login"
+                   OnClick="@(() => NavigationManager.NavigateTo("/login"))"
+                   Style="font-weight: 700; text-transform: none; border-radius: 10px; font-size: 1rem; padding: 12px 0;">
+            Sign In to Continue
+        </MudButton>
+    </MudPaper>
+
+    <!-- Key Features Grid -->
+    <MudGrid Class="mt-2" Spacing="3" Style="max-width: 800px;">
+        <MudItem xs="12" sm="4">
+            <MudPaper Class="pa-4 text-left h-100" Style="background-color: #141721; border: 1px solid #232734; border-radius: 12px;">
+                <MudIcon Icon="@Icons.Material.Filled.ViewKanban" Color="Color.Primary" Class="mb-2" />
+                <MudText Typo="Typo.subtitle2" Class="fw-bold text-white mb-1">Sprint Kanban</MudText>
+                <MudText Typo="Typo.caption" Style="color: #71717a;">
+                    Real-time drag-and-drop board with Backlog, In Progress, In Review, and Done workflows.
+                </MudText>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="4">
+            <MudPaper Class="pa-4 text-left h-100" Style="background-color: #141721; border: 1px solid #232734; border-radius: 12px;">
+                <MudIcon Icon="@Icons.Material.Filled.Security" Color="Color.Secondary" Class="mb-2" />
+                <MudText Typo="Typo.subtitle2" Class="fw-bold text-white mb-1">Role-Based Access</MudText>
+                <MudText Typo="Typo.caption" Style="color: #71717a;">
+                    Granular permissions protecting project deletion, status updates, and ticket authoring.
+                </MudText>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="4">
+            <MudPaper Class="pa-4 text-left h-100" Style="background-color: #141721; border: 1px solid #232734; border-radius: 12px;">
+                <MudIcon Icon="@Icons.Material.Filled.Timeline" Color="Color.Success" Class="mb-2" />
+                <MudText Typo="Typo.subtitle2" Class="fw-bold text-white mb-1">Live Activity Stream</MudText>
+                <MudText Typo="Typo.caption" Style="color: #71717a;">
+                    Instant audit trails, discussions, and executive KPI analytics dashboard.
+                </MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</div>

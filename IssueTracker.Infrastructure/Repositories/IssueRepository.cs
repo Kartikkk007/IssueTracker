@@ -131,6 +131,30 @@ public class IssueRepository : IIssueRepository<Issue>
         return true;
     }
 
+    public async Task<bool> DeleteProjectAsync(int projectId, CancellationToken ct = default)
+    {
+        using var context = await _contextFactory.CreateDbContextAsync(ct);
+        var project = await context.Projects
+            .Include(p => p.Issues)
+            .FirstOrDefaultAsync(p => p.ProjectId == projectId, ct);
+        if (project is null) return false;
+
+        if (project.Issues != null && project.Issues.Any())
+        {
+            var issueIds = project.Issues.Select(i => i.IssueId).ToList();
+            var comments = await context.Comments.Where(c => issueIds.Contains(c.IssueId)).ToListAsync(ct);
+            if (comments.Any())
+            {
+                context.Comments.RemoveRange(comments);
+            }
+            context.Issues.RemoveRange(project.Issues);
+        }
+
+        context.Projects.Remove(project);
+        await context.SaveChangesAsync(ct);
+        return true;
+    }
+
     public async Task LogActivityAsync(int? issueId, string? issueKey, string action, string description, string userName = "Alex Rivers", CancellationToken ct = default)
     {
         using var context = await _contextFactory.CreateDbContextAsync(ct);

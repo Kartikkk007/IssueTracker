@@ -6,6 +6,7 @@
 @using IssueTracker.Infrastructure.Entities
 @using IssueTracker.UI.Components.Shared
 @inject IssueService IssueService
+@inject AuthService AuthService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
@@ -145,6 +146,14 @@ else
         var item = dropInfo.Item;
         var newStatus = dropInfo.DropzoneIdentifier;
         var oldStatus = item.Status;
+
+        // Role-based authorization gate for Done column
+        if (newStatus == "Done" && !AuthService.HasRole("Admin", "QA Tester"))
+        {
+            Snackbar.Add("Access Denied: Only QA Testers or Admins can mark issues as 'Done'.", Severity.Warning);
+            await LoadBoard();
+            return;
+        }
 
         var index = issues.FindIndex(i => i.IssueId == item.IssueId);
         if (index != -1)
