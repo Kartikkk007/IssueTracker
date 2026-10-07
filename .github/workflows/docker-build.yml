@@ -1,11 +1,11 @@
 name: Docker Build & Test CI
 
-# Trigger this workflow on every push or pull request to main/master branch
 on:
   push:
     branches: [ "main", "master" ]
   pull_request:
     branches: [ "main", "master" ]
+  workflow_dispatch: # Enables manual trigger button in GitHub UI
 
 jobs:
   build:
@@ -13,15 +13,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Download the clean source code from GitHub
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # Step 2: Set up the Docker Buildx tool
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # Step 3: Build the Docker image using your Dockerfile
       - name: Build Docker Image
         uses: docker/build-push-action@v5
         with:
