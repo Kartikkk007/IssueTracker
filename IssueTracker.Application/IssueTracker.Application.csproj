@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\IssueTracker.core\IssueTracker.Core.csproj" />
+    <ProjectReference Include="..\IssueTracker.Core\IssueTracker.Core.csproj" />
     <ProjectReference Include="..\IssueTracker.Infrastructure\IssueTracker.Infrastructure.csproj" />
   </ItemGroup>
 

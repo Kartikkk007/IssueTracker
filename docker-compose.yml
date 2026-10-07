@@ -1,0 +1,44 @@
+services:
+  # ----------------------------------------------------
+  # 1. SQL Server Database Container
+  # ----------------------------------------------------
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: issuetracker-db
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=YourStrong@Password123!
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqldata:/var/opt/mssql
+    networks:
+      - issuetracker-network
+
+  # ----------------------------------------------------
+  # 2. Blazor Web Application Container
+  # ----------------------------------------------------
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: issuetracker-web
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=IssueTrackerDb;User Id=sa;Password=YourStrong@Password123!;TrustServerCertificate=True;
+    ports:
+      - "5000:8080"
+    depends_on:
+      - sqlserver
+    networks:
+      - issuetracker-network
+
+# ----------------------------------------------------
+# Persistent Storage & Network Configuration
+# ----------------------------------------------------
+volumes:
+  sqldata:
+
+networks:
+  issuetracker-network:
+    driver: bridge
